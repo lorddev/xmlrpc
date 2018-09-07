@@ -24,168 +24,203 @@ DEALINGS IN THE SOFTWARE.
 */
 using System;
 using System.Collections;
-using System.Linq;
+using System.Collections.Generic;
+using System.Runtime.Serialization;
 
 namespace CookComputing.XmlRpc
 {
-	public class XmlRpcStruct : Hashtable
-	{
-		private readonly ArrayList _keys = new ArrayList();
-		private readonly ArrayList _values = new ArrayList();
+    public class XmlRpcStruct : Dictionary<string, object>, IDictionary, ISerializable, IDeserializationCallback, ICloneable
+    {
+        private readonly List<string> _keys = new List<string>();
+        private readonly List<object> _values = new List<object>();
+        private readonly Dictionary<string, object> _dictionary = new Dictionary<string, object>();
+        private readonly object _syncRoot = new object();
 
-		public override void Add(object key, object value)
-		{
-			if (!(key is string))
-			{
-				throw new ArgumentException("XmlRpcStruct key must be a string.");
-			}
-			if (XmlRpcServiceInfo.GetXmlRpcType(value.GetType())
-				== XmlRpcType.tInvalid)
-			{
-				throw new ArgumentException(string.Format(
-				  "Type {0} cannot be mapped to an XML-RPC type", value.GetType()));
-			}
-			base.Add(key, value);
-			_keys.Add(key);
-			_values.Add(value);
-		}
+        public void Add(object key, object value)
+        {
+            if (!(key is string))
+            {
+                throw new ArgumentException("XmlRpcStruct key must be a string.");
+            }
 
-		public override object this[object key]
-		{
-			get => base[key];
-			set
-			{
-				if (!(key is string))
-				{
-					throw new ArgumentException("XmlRpcStruct key must be a string.");
-				}
-				if (XmlRpcServiceInfo.GetXmlRpcType(value.GetType())
-					== XmlRpcType.tInvalid)
-				{
-					throw new ArgumentException(string.Format(
-					  "Type {0} cannot be mapped to an XML-RPC type", value.GetType()));
-				}
-				base[key] = value;
-				_keys.Add(key);
-				_values.Add(value);
-			}
-		}
+            _dictionary.Add(key as string, value);
+            _keys.Add(key as string);
+            _values.Add(value);
+        }
 
-		public override bool Equals(Object obj)
-		{
-			if (obj.GetType() != typeof(XmlRpcStruct))
-				return false;
-			var xmlRpcStruct = (XmlRpcStruct)obj;
-			if (Keys.Count != xmlRpcStruct.Count)
-				return false;
-			foreach (string key in Keys)
-			{
-				if (!xmlRpcStruct.ContainsKey(key))
-					return false;
-				if (!this[key].Equals(xmlRpcStruct[key]))
-					return false;
-			}
-			return true;
-		}
+        public void Clear()
+        {
+            _dictionary.Clear();
+            _keys.Clear();
+            _values.Clear();
+        }
 
-		public override int GetHashCode()
-		{
-			return Values.Cast<object>().Aggregate(0, (current, obj) => current ^ obj.GetHashCode());
-		}
+        public bool Contains(object key)
+        {
+            return _dictionary.ContainsKey(key as string);
+        }
 
-		public override void Clear()
-		{
-			base.Clear();
-			_keys.Clear();
-			_values.Clear();
-		}
+        public bool ContainsKey(object key)
+        {
+            return _dictionary.ContainsKey(key as string);
+        }
 
-		public new IDictionaryEnumerator GetEnumerator()
-		{
-			return new Enumerator(_keys, _values);
-		}
+        public bool ContainsValue(object value)
+        {
+            return _dictionary.ContainsValue(value as string);
+        }
 
-		public override ICollection Keys => _keys;
+        public IDictionaryEnumerator GetEnumerator()
+        {
+            return new XmlRpcStruct.Enumerator(_keys, _values);
+        }
 
-		public override void Remove(object key)
-		{
-			base.Remove(key);
-			var idx = _keys.IndexOf(key);
-			if (idx >= 0)
-			{
-				_keys.RemoveAt(idx);
-				_values.RemoveAt(idx);
-			}
-		}
+        public bool IsFixedSize => false;
 
-		public override ICollection Values => _values;
+        public bool IsReadOnly => false;
 
-		private class Enumerator : IDictionaryEnumerator
-		{
-			private readonly ArrayList _keys;
-			private readonly ArrayList _values;
-			private int _index;
+        public ICollection Keys => _keys;
 
-			public Enumerator(ArrayList keys, ArrayList values)
-			{
-				_keys = keys;
-				_values = values;
-				_index = -1;
-			}
+        public void Remove(object key)
+        {
+            _dictionary.Remove(key as string);
+            int idx = _keys.IndexOf(key as string);
+            if (idx >= 0)
+            {
+                _keys.RemoveAt(idx);
+                _values.RemoveAt(idx);
+            }
+        }
 
-			public void Reset()
-			{
-				_index = -1;
-			}
+        public ICollection Values => _values;
 
-			public object Current
-			{
-				get
-				{
-					CheckIndex();
-					return new DictionaryEntry(_keys[_index], _values[_index]);
-				}
-			}
+        public object this[object key]
+        {
+            get { return _dictionary[key as string]; }
+            set
+            {
+                if (!(key is string))
+                {
+                    throw new ArgumentException("XmlRpcStruct key must be a string.");
+                }
 
-			public bool MoveNext()
-			{
-				_index++;
-				return _index < _keys.Count;
-			}
+                _dictionary[key as string] = value;
+                _keys.Add(key as string);
+                _values.Add(value);
+            }
+        }
 
-			public DictionaryEntry Entry
-			{
-				get
-				{
-					CheckIndex();
-					return new DictionaryEntry(_keys[_index], _values[_index]);
-				}
-			}
+        public void CopyTo(Array array, int index)
+        {
+            throw new NotImplementedException(); // TODO: implement
+        }
 
-			public object Key
-			{
-				get
-				{
-					CheckIndex();
-					return _keys[_index];
-				}
-			}
+        public int Count => _dictionary.Count;
 
-			public object Value
-			{
-				get
-				{
-					CheckIndex();
-					return _values[_index];
-				}
-			}
+        public bool IsSynchronized => false;
 
-			private void CheckIndex()
-			{
-				if (_index < 0 || _index >= _keys.Count)
-					throw new InvalidOperationException(
-					  "Enumeration has either not started or has already finished.");
-			}
-		}
-	}
+        public object SyncRoot => _syncRoot;
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return new XmlRpcStruct.Enumerator(_keys, _values);
+        }
+
+        void ICollection.CopyTo(Array array, int index)
+        {
+            throw new NotImplementedException(); // TODO: implement
+        }
+
+        int ICollection.Count => _dictionary.Count;
+
+        bool ICollection.IsSynchronized => false;
+
+        object ICollection.SyncRoot => _syncRoot;
+
+        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            throw new NotImplementedException(); // TODO: implement
+        }
+
+        public void OnDeserialization(object sender)
+        {
+            throw new NotImplementedException(); // TODO: implement
+        }
+
+        public object Clone()
+        {
+            throw new NotImplementedException(); // TODO: implement
+        }
+
+        private class Enumerator : IDictionaryEnumerator
+        {
+            private readonly List<string> _keys;
+            private readonly List<object> _values;
+            private int _index;
+
+            public Enumerator(List<string> keys, List<object> values)
+            {
+                _keys = keys;
+                _values = values;
+                _index = -1;
+            }
+
+            public void Reset()
+            {
+                _index = -1;
+            }
+
+            public object Current
+            {
+                get
+                {
+                    CheckIndex();
+                    return new DictionaryEntry(_keys[_index], _values[_index]);
+                }
+            }
+
+            public bool MoveNext()
+            {
+                _index++;
+                if (_index >= _keys.Count)
+                    return false;
+                else
+                    return true;
+            }
+
+            public DictionaryEntry Entry
+            {
+                get
+                {
+                    CheckIndex();
+                    return new DictionaryEntry(_keys[_index], _values[_index]);
+                }
+            }
+
+            public object Key
+            {
+                get
+                {
+                    CheckIndex();
+                    return _keys[_index];
+                }
+            }
+
+            public object Value
+            {
+                get
+                {
+                    CheckIndex();
+                    return _values[_index];
+                }
+            }
+
+            private void CheckIndex()
+            {
+                if (_index < 0 || _index >= _keys.Count)
+                    throw new InvalidOperationException(
+                        "Enumeration has either not started or has already finished.");
+            }
+        }
+    }
 }
