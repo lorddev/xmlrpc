@@ -34,7 +34,9 @@ test:
     - build
   script:
     - cd "${project_name}.Tests"
-    - dotnet test "${project_name}.Tests.csproj"
+    - dotnet add package coverlet.msbuild
+    - dotnet test /p:CollectCoverage=true "${project_name}.Tests.csproj"
+  coverage: '/Total Line: \d+%/'
   
 publish-nuget:
   stage: deploy
@@ -56,9 +58,9 @@ sast:
     - export SP_VERSION=$(echo "$CI_SERVER_VERSION" | sed 's/^\([0-9]*\)\.\([0-9]*\).*/\1-\2-stable/')
     - docker run
         --env SAST_CONFIDENCE_LEVEL="${SAST_CONFIDENCE_LEVEL:-3}"
-        --env SAST_ANALYZER_IMAGES=security-code-scan
         --volume "$PWD:/code"
         --volume /var/run/docker.sock:/var/run/docker.sock
         "registry.gitlab.com/gitlab-org/security-products/sast:$SP_VERSION" /app/bin/run /code
   artifacts:
-    paths: [gl-sast-report.json]
+    reports:
+      sast: [gl-sast-report.json]
