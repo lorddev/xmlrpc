@@ -34,21 +34,20 @@ namespace CookComputing.XmlRpc
         private readonly List<string> _keys = new List<string>();
         private readonly List<object> _values = new List<object>();
         private readonly Dictionary<string, object> _dictionary = new Dictionary<string, object>();
-        private readonly object _syncRoot = new object();
 
         public void Add(object key, object value)
         {
-            if (!(key is string))
+            if (!(key is string s))
             {
                 throw new ArgumentException("XmlRpcStruct key must be a string.");
             }
 
-            _dictionary.Add(key as string, value);
-            _keys.Add(key as string);
+            _dictionary.Add(s, value);
+            _keys.Add(s);
             _values.Add(value);
         }
 
-        public void Clear()
+        public new void Clear()
         {
             _dictionary.Clear();
             _keys.Clear();
@@ -57,20 +56,30 @@ namespace CookComputing.XmlRpc
 
         public bool Contains(object key)
         {
-            return _dictionary.ContainsKey(key as string);
+            if (!(key is string s))
+            {
+                throw new ArgumentException("XmlRpcStruct key must be a string.");
+            }
+            
+            return _dictionary.ContainsKey(s);
         }
 
         public bool ContainsKey(object key)
         {
-            return _dictionary.ContainsKey(key as string);
+            if (!(key is string s))
+            {
+                throw new ArgumentException("XmlRpcStruct key must be a string.");
+            }
+
+            return _dictionary.ContainsKey(s);
         }
 
-        public bool ContainsValue(object value)
+        public new bool ContainsValue(object value)
         {
             return _dictionary.ContainsValue(value as string);
         }
 
-        public IDictionaryEnumerator GetEnumerator()
+        public new IDictionaryEnumerator GetEnumerator()
         {
             return new XmlRpcStruct.Enumerator(_keys, _values);
         }
@@ -79,20 +88,22 @@ namespace CookComputing.XmlRpc
 
         public bool IsReadOnly => false;
 
-        public ICollection Keys => _keys;
+        public new ICollection Keys => _keys;
 
         public void Remove(object key)
         {
-            _dictionary.Remove(key as string);
-            int idx = _keys.IndexOf(key as string);
-            if (idx >= 0)
+            if (!(key is string s))
             {
-                _keys.RemoveAt(idx);
-                _values.RemoveAt(idx);
+                throw new ArgumentException("XmlRpcStruct key must be a string.");
             }
+            _dictionary.Remove(s);
+            var idx = _keys.IndexOf(s);
+            if (idx < 0) return;
+            _keys.RemoveAt(idx);
+            _values.RemoveAt(idx);
         }
 
-        public ICollection Values => _values;
+        public new ICollection Values => _values;
 
         public object this[object key]
         {
@@ -115,11 +126,11 @@ namespace CookComputing.XmlRpc
             throw new NotImplementedException(); // TODO: implement
         }
 
-        public int Count => _dictionary.Count;
+        public new int Count => _dictionary.Count;
 
-        public bool IsSynchronized => false;
+        public bool IsSynchronized { get; set; } = false;
 
-        public object SyncRoot => _syncRoot;
+        public object SyncRoot { get; set; } = new object();
 
         IEnumerator IEnumerable.GetEnumerator()
         {
@@ -135,14 +146,14 @@ namespace CookComputing.XmlRpc
 
         bool ICollection.IsSynchronized => false;
 
-        object ICollection.SyncRoot => _syncRoot;
+        object ICollection.SyncRoot => SyncRoot;
 
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        public new void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             throw new NotImplementedException(); // TODO: implement
         }
 
-        public void OnDeserialization(object sender)
+        public new void OnDeserialization(object sender)
         {
             throw new NotImplementedException(); // TODO: implement
         }
@@ -152,7 +163,7 @@ namespace CookComputing.XmlRpc
             throw new NotImplementedException(); // TODO: implement
         }
 
-        private class Enumerator : IDictionaryEnumerator
+        private new class Enumerator : IDictionaryEnumerator
         {
             private readonly List<string> _keys;
             private readonly List<object> _values;
